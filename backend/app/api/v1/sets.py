@@ -14,7 +14,7 @@ from app.models.database import get_db_session
 from app.models.product_models import ProductSet, Product, ProductPricing
 from app.models.user_models import User
 from app.core.security import get_current_user_optional
-from app.services.tcgdex_data_fetcher import TcgdexDataFetcher, sync_tcgdex_data, sync_single_set
+from app.services.tcgdex_data_fetcher import TCGdexDataFetcher, sync_tcgdex_data, sync_single_set
 from app.schemas.set_schemas import (
     SetCollection, SetSummary, SetCard, SetListResponse, 
     SetFilters, UserSetProgress
@@ -361,7 +361,7 @@ async def sync_single_set_from_tcgdex(
 async def get_available_tcgdex_sets():
     """Get all available sets from TCGdex API without syncing to database"""
     try:
-        async with TcgdexDataFetcher() as fetcher:
+        async with TCGdexDataFetcher() as fetcher:
             sets_data = await fetcher.fetch_all_sets()
             
             return {
@@ -394,7 +394,7 @@ async def get_available_tcgdex_sets():
 async def get_tcgdex_sets():
     """Get all TCGdex sets"""
     try:
-        async with TcgdexDataFetcher() as fetcher:
+        async with TCGdexDataFetcher() as fetcher:
             sets_data = await fetcher.fetch_all_sets()
             return {
                 "status": "success",
@@ -412,7 +412,7 @@ async def get_tcgdex_sets():
 async def get_tcgdex_set_details(set_id: str):
     """Get TCGdex set details"""
     try:
-        async with TcgdexDataFetcher() as fetcher:
+        async with TCGdexDataFetcher() as fetcher:
             set_data = await fetcher.fetch_set_details(set_id)
             if not set_data:
                 raise HTTPException(
@@ -437,7 +437,7 @@ async def get_tcgdex_set_details(set_id: str):
 async def get_tcgdex_set_cards(set_id: str):
     """Get all cards from a TCGdex set"""
     try:
-        async with TcgdexDataFetcher() as fetcher:
+        async with TCGdexDataFetcher() as fetcher:
             cards_data = await fetcher.fetch_set_cards(set_id)
             return {
                 "status": "success",

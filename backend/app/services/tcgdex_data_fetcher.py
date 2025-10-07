@@ -17,7 +17,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-class TcgdexDataFetcher:
+class TCGdexDataFetcher:
     """Service for fetching and synchronizing TCGdex Pokemon TCG data"""
     
     def __init__(self):
@@ -42,33 +42,14 @@ class TcgdexDataFetcher:
         if self.client:
             await self.client.aclose()
     
-    def _format_image_url(self, base_url: str, image_type: str = "logo", quality: str = "high", extension: str = "webp") -> str:
-        """Format TCGdex image URLs with proper extensions and quality"""
-        if image_type in ["logo", "symbol"]:
-            # For logos and symbols, just add the extension
-            return f"{base_url}.{extension}"
-        elif image_type == "card":
-            # For cards, add quality and extension
-            return f"{base_url}/{quality}.{extension}"
-        return base_url
-    
     async def fetch_all_sets(self) -> List[Dict[str, Any]]:
         """Fetch all available Pokemon TCG sets from TCGDex API"""
         try:
             response = await self.client.get(f"{self.base_url}/{self.language}/sets")
             response.raise_for_status()
             data = response.json()
-            # TCGdex API returns sets directly as an array
-            logger.info(f"Fetched {len(data)} sets from TCGDex API")
-            
-            # Format image URLs for logos and symbols
-            for set_data in data:
-                if 'logo' in set_data and set_data['logo']:
-                    set_data['logo'] = self._format_image_url(set_data['logo'], "logo", extension="webp")
-                if 'symbol' in set_data and set_data['symbol']:
-                    set_data['symbol'] = self._format_image_url(set_data['symbol'], "symbol", extension="webp")
-            
-            return data
+            logger.info(f"Fetched {len(data.get('data', []))} sets from TCGDex API")
+            return data.get('data', [])
         except Exception as e:
             logger.error(f"Failed to fetch sets from TCGDex API: {str(e)}")
             return []
@@ -79,36 +60,11 @@ class TcgdexDataFetcher:
             response = await self.client.get(f"{self.base_url}/{self.language}/sets/{set_id}")
             response.raise_for_status()
             data = response.json()
-            
-            # Format image URLs for logos and symbols
-            if 'logo' in data and data['logo']:
-                data['logo'] = self._format_image_url(data['logo'], "logo", extension="webp")
-            if 'symbol' in data and data['symbol']:
-                data['symbol'] = self._format_image_url(data['symbol'], "symbol", extension="webp")
-            
             logger.info(f"Fetched set details for {set_id} from TCGDex API")
             return data
         except Exception as e:
             logger.error(f"Failed to fetch set {set_id} from TCGDex API: {str(e)}")
             return None
-    
-    async def fetch_set_cards(self, set_id: str) -> List[Dict[str, Any]]:
-        """Fetch all cards from a specific set from TCGDex API"""
-        try:
-            response = await self.client.get(f"{self.base_url}/{self.language}/cards", params={"set": set_id})
-            response.raise_for_status()
-            data = response.json()
-            
-            # Format image URLs for cards
-            for card in data:
-                if 'image' in card and card['image']:
-                    card['image'] = self._format_image_url(card['image'], "card", quality="low", extension="webp")
-            
-            logger.info(f"Fetched {len(data)} cards for set {set_id} from TCGDex API")
-            return data
-        except Exception as e:
-            logger.error(f"Failed to fetch cards for set {set_id} from TCGDex API: {str(e)}")
-            return []
     
     async def sync_all_sets(self, limit: Optional[int] = None) -> int:
         """Sync multiple sets from TCGDex API to database"""
@@ -159,16 +115,16 @@ class TcgdexDataFetcher:
 
 
 # Global instance
-tcgdex_fetcher = TcgdexDataFetcher()
+tcgdex_fetcher = TCGdexDataFetcher()
 
 
 async def sync_tcgdex_data(limit: Optional[int] = None) -> int:
     """Convenience function to sync TCGdex data"""
-    async with TcgdexDataFetcher() as fetcher:
+    async with TCGdexDataFetcher() as fetcher:
         return await fetcher.sync_all_sets(limit=limit)
 
 
 async def sync_single_set(set_id: str) -> bool:
     """Convenience function to sync a single set"""
-    async with TcgdexDataFetcher() as fetcher:
+    async with TCGdexDataFetcher() as fetcher:
         return await fetcher.sync_complete_set(set_id)

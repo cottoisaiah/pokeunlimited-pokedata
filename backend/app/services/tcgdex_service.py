@@ -1,6 +1,6 @@
 """
-🎯 TCGdx API Service
-Production-ready integration with TCGdx API for Pokemon TCG data
+🎯 TCGdex API Service
+Production-ready integration with TCGdex API for Pokemon TCG data
 """
 
 import asyncio
@@ -32,7 +32,7 @@ logger = structlog.get_logger(__name__)
 
 @dataclass
 class PokemonCard:
-    """Pokemon card data structure from TCGdx"""
+    """Pokemon card data structure from TCGdex"""
     id: str
     name: str
     image_url: str
@@ -61,7 +61,7 @@ class TCGdexService:
     """Professional TCGdex API integration with caching and analytics"""
     
     def __init__(self):
-        # Initialize TCGdx SDK
+        # Initialize TCGdex SDK
         self.sdk = TCGdex(Language.EN)
         
         # Cache for frequently accessed data
@@ -69,7 +69,7 @@ class TCGdexService:
         self._set_cache = {}
         self._cache_ttl = timedelta(hours=1)
         
-        logger.info("TCGdx service initialized with English language support")
+        logger.info("TCGdex service initialized with English language support")
     
     def set_language(self, language: str = "en"):
         """Change the language for card data"""
@@ -259,7 +259,7 @@ class TCGdexService:
             return None
     
     async def _convert_to_pokemon_card(self, card_data) -> Optional[PokemonCard]:
-        """Convert TCGdx card data to PokemonCard object"""
+        """Convert TCGdex card data to PokemonCard object"""
         try:
             return PokemonCard(
                 id=card_data.id,
@@ -373,7 +373,7 @@ from app.models.product_models import Product, ProductPricing, PriceHistory
 logger = structlog.get_logger(__name__)
 
 class Language(Enum):
-    """Supported languages for TCGdx API"""
+    """Supported languages for TCGdex API"""
     ENGLISH = "en"
     FRENCH = "fr" 
     SPANISH = "es"
@@ -410,13 +410,13 @@ class TCGdexSet:
     name: str
     symbol: str
     release_date: str
-    card_count: int
+    card_count: Dict[str, int]  # Changed from int to Dict
     image: str
     series: str
 
 @dataclass
 class PricingData:
-    """Comprehensive pricing data from TCGdx"""
+    """Comprehensive pricing data from TCGdex"""
     tcgplayer_normal: Optional[Dict] = None
     tcgplayer_holofoil: Optional[Dict] = None
     tcgplayer_reverse_holo: Optional[Dict] = None
@@ -429,9 +429,13 @@ class TCGdexClient:
     """Professional TCGdex API client with caching and rate limiting"""
     
     def __init__(self, language: Language = Language.ENGLISH):
-        self.language = language.value
-        self.base_url = "https://api.tcgdx.net/v2"
-        self.graphql_url = "https://api.tcgdx.net/graphql"
+        # Handle both Language enum and string
+        if isinstance(language, str):
+            self.language = language
+        else:
+            self.language = language.value
+        self.base_url = "https://api.tcgdex.net/v2"
+        self.graphql_url = "https://api.tcgdex.net/graphql"
         
         # HTTP client with optimized settings
         timeout = httpx.Timeout(30.0)
@@ -449,7 +453,7 @@ class TCGdexClient:
         
         # Rate limiting
         self.last_request_time = 0
-        self.request_delay = 0.1  # TCGdx is generous with rate limits
+        self.request_delay = 0.1  # TCGdex is generous with rate limits
         
         # Cache for reducing API calls
         self.card_cache = {}
@@ -489,19 +493,19 @@ class TCGdexClient:
             response.raise_for_status()
             data = response.json()
             
-            logger.info(f"TCGdx API request successful", endpoint=endpoint, status=response.status_code)
+            logger.info(f"TCGdex API request successful", endpoint=endpoint, status=response.status_code)
             return data
             
         except httpx.HTTPStatusError as e:
             logger.error(
-                "TCGdx API error",
+                "TCGdex API error",
                 status_code=e.response.status_code,
                 response=e.response.text[:500],
                 endpoint=endpoint
             )
             return None
         except Exception as e:
-            logger.error("TCGdx request failed", error=str(e), endpoint=endpoint)
+            logger.error("TCGdex request failed", error=str(e), endpoint=endpoint)
             return None
     
     async def get_card(self, card_id: str) -> Optional[TCGdexCard]:
@@ -530,7 +534,7 @@ class TCGdexClient:
         limit: int = 100
     ) -> List[TCGdexCard]:
         """Advanced card search with multiple filters"""
-        params = {"page": page, "pageSize": min(limit, 250)}  # TCGdx max page size
+        params = {"page": page, "pageSize": min(limit, 250)}  # TCGdex max page size
         
         if name:
             params["q"] = name
@@ -555,7 +559,7 @@ class TCGdexClient:
         for card in cards:
             self.card_cache[card.id] = card
         
-        logger.info(f"TCGdx search returned {len(cards)} cards", query=name, set_id=set_id)
+        logger.info(f"TCGdex search returned {len(cards)} cards", query=name, set_id=set_id)
         return cards
     
     async def get_sets(self) -> List[TCGdexSet]:
@@ -564,16 +568,25 @@ class TCGdexClient:
             return list(self.set_cache.values())
         
         data = await self._make_request("/sets")
-        if not data or "data" not in data:
+        if not data:
             return []
         
-        sets = [self._parse_set(set_data) for set_data in data["data"]]
+        # Handle both dict with "data" key and direct list response
+        if isinstance(data, dict) and "data" in data:
+            set_list = data["data"]
+        elif isinstance(data, list):
+            set_list = data
+        else:
+            logger.warning(f"Unexpected API response format: {type(data)}")
+            return []
+        
+        sets = [self._parse_set(set_data) for set_data in set_list]
         
         # Cache sets
         for set_info in sets:
             self.set_cache[set_info.id] = set_info
         
-        logger.info(f"TCGdx returned {len(sets)} sets")
+        logger.info(f"TCGdex returned {len(sets)} sets")
         return sets
     
     async def get_set(self, set_id: str) -> Optional[TCGdexSet]:
@@ -708,7 +721,7 @@ class TCGdexClient:
         )
     
     def _extract_pricing_data(self, pricing_data: Dict) -> PricingData:
-        """Extract comprehensive pricing data from TCGdx response"""
+        """Extract comprehensive pricing data from TCGdex response"""
         tcgplayer = pricing_data.get("tcgplayer", {})
         cardmarket = pricing_data.get("cardmarket", {})
         
@@ -718,7 +731,7 @@ class TCGdexClient:
             tcgplayer_reverse_holo=tcgplayer.get("reverseHolofoil"),
             tcgplayer_first_edition=tcgplayer.get("1stEdition"),
             cardmarket_normal=cardmarket,
-            cardmarket_foil=cardmarket,  # TCGdx includes foil in main cardmarket object
+            cardmarket_foil=cardmarket,  # TCGdex includes foil in main cardmarket object
             last_updated=datetime.now()
         )
 

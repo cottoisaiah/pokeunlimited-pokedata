@@ -31,6 +31,9 @@ hiredis==2.2.3
 celery==5.3.4
 flower==2.0.1
 
+# TCGdex SDK for Pokemon card data and pricing
+tcgdex-sdk==2.2.0
+
 # Data Processing & Analytics
 pandas==2.1.4
 numpy==1.25.2

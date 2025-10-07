@@ -19,6 +19,7 @@ from app.api.v1.portfolio import router as portfolio_router
 from app.api.v1.users import router as users_router
 from app.api.v1.search import router as search_router
 from app.api.v1.alerts import router as alerts_router
+from app.api.v1.pokedata import router as pokedata_router
 
 logger = structlog.get_logger(__name__)
 security = HTTPBearer()
@@ -58,6 +59,13 @@ api_router.include_router(
     search_router,
     prefix="/search",
     tags=["Search"]
+)
+
+# Direct PokeData table access (public, no auth)
+api_router.include_router(
+    pokedata_router,
+    prefix="/pokedata",
+    tags=["PokeData"]
 )
 
 # Protected endpoints (authentication required)

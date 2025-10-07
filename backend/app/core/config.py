@@ -6,7 +6,7 @@ Production-ready configuration management with environment-based settings
 import os
 from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ConfigDict
 
 
 class Settings(BaseSettings):
@@ -111,13 +111,21 @@ class Settings(BaseSettings):
     PRICING_UPDATE_INTERVAL: int = 300   # 5 minutes
     ANALYTICS_UPDATE_INTERVAL: int = 1800 # 30 minutes
     
-    # CORS Settings
-    ALLOWED_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:3001"],
-        env="ALLOWED_ORIGINS"
+    # CORS Settings  
+    ALLOWED_ORIGINS_STR: str = Field(
+        default="http://localhost:3000,http://localhost:3001",
+        validation_alias="ALLOWED_ORIGINS"
     )
     
-    # Monitoring & Logging
+    @property
+    def ALLOWED_ORIGINS(self) -> List[str]:
+        """Parse CORS origins from comma-separated string"""
+        if not hasattr(self, '_parsed_origins'):
+            if isinstance(self.ALLOWED_ORIGINS_STR, str):
+                self._parsed_origins = [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
+            else:
+                self._parsed_origins = ["http://localhost:3000", "http://localhost:3001"]
+        return self._parsed_origins
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
     SENTRY_DSN: Optional[str] = Field(default=None, env="SENTRY_DSN")
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
@@ -137,14 +145,6 @@ class Settings(BaseSettings):
     WEBSOCKET_MAX_CONNECTIONS: int = 1000
     WEBSOCKET_HEARTBEAT_INTERVAL: int = 30
     
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from string or list"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
-    
     @field_validator("ENVIRONMENT")
     @classmethod
     def validate_environment(cls, v):
@@ -153,9 +153,13 @@ class Settings(BaseSettings):
             raise ValueError("ENVIRONMENT must be one of: development, staging, production")
         return v
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",  # Allow extra environment variables without failing
+        env_parse_none_str='constant',
+        validate_default=True
+    )
 
 
 # Global settings instance
