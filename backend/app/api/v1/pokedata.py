@@ -1,10 +1,10 @@
 """
 🎯 PokeData Direct Database Access API
-Direct access to pokedata_cards and pokedata_sets tables
+Direct access to pokedata_cards and pokedata_sets tables with multi-language support
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from sqlalchemy import text
 import structlog
 
@@ -13,16 +13,85 @@ from app.models.database import get_db_session
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
+# Supported languages
+SUPPORTED_LANGUAGES = [
+    'en', 'de', 'es', 'fr', 'it', 'ja', 'ko', 'nl', 
+    'pl', 'pt_br', 'ru', 'th', 'zh_cn', 'zh_tw', 'id'
+]
+
+def validate_language(lang: str) -> str:
+    """Validate and sanitize language parameter"""
+    if lang not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported language: {lang}. Supported languages: {', '.join(SUPPORTED_LANGUAGES)}"
+        )
+    return lang
+
+
+@router.get("/languages")
+async def get_supported_languages():
+    """Get list of supported languages with their data counts"""
+    try:
+        async with get_db_session() as db:
+            languages_info = []
+            
+            for lang in SUPPORTED_LANGUAGES:
+                try:
+                    # Get set and card counts for each language
+                    sets_count_query = text(f"SELECT COUNT(*) FROM pokedata_sets_{lang}")
+                    cards_count_query = text(f"SELECT COUNT(*) FROM pokedata_cards_{lang}")
+                    
+                    sets_result = await db.execute(sets_count_query)
+                    cards_result = await db.execute(cards_count_query)
+                    
+                    sets_count = sets_result.scalar()
+                    cards_count = cards_result.scalar()
+                    
+                    # Language display names
+                    lang_names = {
+                        'en': 'English', 'de': 'German', 'es': 'Spanish', 'fr': 'French',
+                        'it': 'Italian', 'ja': 'Japanese', 'ko': 'Korean', 'nl': 'Dutch',
+                        'pl': 'Polish', 'pt_br': 'Portuguese (Brazil)', 'ru': 'Russian',
+                        'th': 'Thai', 'zh_cn': 'Chinese (Simplified)', 'zh_tw': 'Chinese (Traditional)',
+                        'id': 'Indonesian'
+                    }
+                    
+                    languages_info.append({
+                        "code": lang,
+                        "name": lang_names.get(lang, lang),
+                        "sets_count": sets_count,
+                        "cards_count": cards_count,
+                        "has_data": sets_count > 0 or cards_count > 0
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to get counts for language {lang}: {e}")
+                    continue
+            
+            return {
+                "languages": languages_info,
+                "total": len(languages_info)
+            }
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch languages: {e}")
+        return {"languages": [], "total": 0}
+
 
 @router.get("/cards")
 async def get_pokedata_cards(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
-    set_id: Optional[str] = Query(None)
+    set_id: Optional[str] = Query(None),
+    lang: str = Query('en', description="Language code (en, fr, de, es, it, ja, etc.)")
 ):
-    """Get cards from pokedata_cards_en table"""
+    """Get cards from pokedata_cards_{lang} table"""
     try:
+        # Validate language
+        lang = validate_language(lang)
+        table_name = f"pokedata_cards_{lang}"
+        
         async with get_db_session() as db:
             # Build query
             where_clauses = []
@@ -39,7 +108,7 @@ async def get_pokedata_cards(
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
             
             # Get total count
-            count_query = text(f"SELECT COUNT(*) FROM pokedata_cards_en WHERE {where_sql}")
+            count_query = text(f"SELECT COUNT(*) FROM {table_name} WHERE {where_sql}")
             count_result = await db.execute(count_query, params)
             total = count_result.scalar()
             
@@ -50,7 +119,7 @@ async def get_pokedata_cards(
                     category, rarity, illustrator, hp, types, stage, 
                     evolves_from, retreat_cost, image_url, 
                     set_release_date, created_at
-                FROM pokedata_cards_en
+                FROM {table_name}
                 WHERE {where_sql}
                 ORDER BY id
                 LIMIT :limit OFFSET :skip
@@ -81,29 +150,38 @@ async def get_pokedata_cards(
                     "retreat_cost": row.retreat_cost,
                     "image_url": image_url,
                     "set_release_date": str(row.set_release_date) if row.set_release_date else None,
-                    "created_at": str(row.created_at) if row.created_at else None
+                    "created_at": str(row.created_at) if row.created_at else None,
+                    "language": lang
                 })
             
             return {
                 "data": cards,
                 "total": total,
                 "skip": skip,
-                "limit": limit
+                "limit": limit,
+                "language": lang
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch pokedata cards: {e}")
-        return {"data": [], "total": 0, "skip": skip, "limit": limit}
+        return {"data": [], "total": 0, "skip": skip, "limit": limit, "language": lang}
 
 
 @router.get("/sets")
 async def get_pokedata_sets(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    search: Optional[str] = Query(None)
+    search: Optional[str] = Query(None),
+    lang: str = Query('en', description="Language code (en, fr, de, es, it, ja, etc.)")
 ):
-    """Get sets from pokedata_sets_en table"""
+    """Get sets from pokedata_sets_{lang} table"""
     try:
+        # Validate language
+        lang = validate_language(lang)
+        table_name = f"pokedata_sets_{lang}"
+        
         async with get_db_session() as db:
             # Build query
             where_clauses = []
@@ -116,7 +194,7 @@ async def get_pokedata_sets(
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
             
             # Get total count
-            count_query = text(f"SELECT COUNT(*) FROM pokedata_sets_en WHERE {where_sql}")
+            count_query = text(f"SELECT COUNT(*) FROM {table_name} WHERE {where_sql}")
             count_result = await db.execute(count_query, params)
             total = count_result.scalar()
             
@@ -125,7 +203,7 @@ async def get_pokedata_sets(
                 SELECT 
                     id, tcgdex_id, name, code, total_cards, 
                     release_date, symbol_url, logo_url, created_at
-                FROM pokedata_sets_en
+                FROM {table_name}
                 WHERE {where_sql}
                 ORDER BY id
                 LIMIT :limit OFFSET :skip
@@ -152,43 +230,52 @@ async def get_pokedata_sets(
                     "release_date": str(row.release_date) if row.release_date else None,
                     "symbol_url": symbol_url,
                     "logo_url": logo_url,
-                    "created_at": str(row.created_at) if row.created_at else None
+                    "created_at": str(row.created_at) if row.created_at else None,
+                    "language": lang
                 })
             
             return {
                 "data": sets,
                 "total": total,
                 "skip": skip,
-                "limit": limit
+                "limit": limit,
+                "language": lang
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch pokedata sets: {e}")
-        return {"data": [], "total": 0, "skip": skip, "limit": limit}
+        return {"data": [], "total": 0, "skip": skip, "limit": limit, "language": lang}
 
 
 @router.get("/sets/{set_id}/cards")
 async def get_set_cards(
     set_id: str,
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200)
+    limit: int = Query(50, ge=1, le=200),
+    lang: str = Query('en', description="Language code (en, fr, de, es, it, ja, etc.)")
 ):
     """Get all cards in a specific set"""
     try:
+        # Validate language
+        lang = validate_language(lang)
+        table_name = f"pokedata_cards_{lang}"
+        
         async with get_db_session() as db:
             params = {"set_id": set_id, "skip": skip, "limit": limit}
             
             # Get total count
-            count_query = text("SELECT COUNT(*) FROM pokedata_cards_en WHERE set_id = :set_id")
+            count_query = text(f"SELECT COUNT(*) FROM {table_name} WHERE set_id = :set_id")
             count_result = await db.execute(count_query, params)
             total = count_result.scalar()
             
             # Get cards
-            query = text("""
+            query = text(f"""
                 SELECT 
                     id, tcgdex_id, local_id, name, set_id, set_name,
                     category, rarity, illustrator, hp, types, image_url
-                FROM pokedata_cards_en
+                FROM {table_name}
                 WHERE set_id = :set_id
                 ORDER BY local_id
                 LIMIT :limit OFFSET :skip
@@ -214,16 +301,20 @@ async def get_set_cards(
                     "illustrator": row.illustrator,
                     "hp": row.hp,
                     "types": row.types,
-                    "image_url": image_url
+                    "image_url": image_url,
+                    "language": lang
                 })
             
             return {
                 "data": cards,
                 "total": total,
                 "skip": skip,
-                "limit": limit
+                "limit": limit,
+                "language": lang
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch cards for set {set_id}: {e}")
-        return {"data": [], "total": 0, "skip": skip, "limit": limit}
+        return {"data": [], "total": 0, "skip": skip, "limit": limit, "language": lang}

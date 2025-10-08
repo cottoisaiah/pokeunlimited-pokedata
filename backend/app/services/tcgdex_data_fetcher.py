@@ -48,8 +48,13 @@ class TCGdexDataFetcher:
             response = await self.client.get(f"{self.base_url}/{self.language}/sets")
             response.raise_for_status()
             data = response.json()
-            logger.info(f"Fetched {len(data.get('data', []))} sets from TCGDex API")
-            return data.get('data', [])
+            # TCGDex API returns a direct array, not an object with 'data' key
+            if isinstance(data, list):
+                logger.info(f"Fetched {len(data)} sets from TCGDex API")
+                return data
+            else:
+                logger.warning(f"Unexpected response format from TCGDex API: {type(data)}")
+                return []
         except Exception as e:
             logger.error(f"Failed to fetch sets from TCGDex API: {str(e)}")
             return []
