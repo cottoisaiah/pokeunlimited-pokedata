@@ -88,19 +88,31 @@ class CardEnricher:
                 self.stats['skipped'] += 1
                 return False
             
-            # Prepare update data
+            # Prepare update data - Basic fields
             update_data = {
                 'category': tcgdex_data.get('category', ''),
                 'rarity': tcgdex_data.get('rarity', ''),
                 'illustrator': tcgdex_data.get('illustrator', ''),
                 'hp': tcgdex_data.get('hp'),
-                'types': json.dumps(tcgdex_data.get('types', [])),  # Convert to JSON string
+                'types': json.dumps(tcgdex_data.get('types', [])),
                 'stage': tcgdex_data.get('stage', ''),
                 'evolves_from': tcgdex_data.get('evolveFrom', ''),
                 'retreat_cost': tcgdex_data.get('retreat'),
             }
             
-            # Update database
+            # Extended fields (Phase 2)
+            update_data.update({
+                'abilities': json.dumps(tcgdex_data.get('abilities', [])) if tcgdex_data.get('abilities') else None,
+                'attacks': json.dumps(tcgdex_data.get('attacks', [])) if tcgdex_data.get('attacks') else None,
+                'weaknesses': json.dumps(tcgdex_data.get('weaknesses', [])) if tcgdex_data.get('weaknesses') else None,
+                'resistances': json.dumps(tcgdex_data.get('resistances', [])) if tcgdex_data.get('resistances') else None,
+                'variants': json.dumps(tcgdex_data.get('variants', {})) if tcgdex_data.get('variants') else None,
+                'suffix': tcgdex_data.get('suffix', None),
+                'dex_id': tcgdex_data.get('dexId', None),  # Can be array or single int
+                'regulation_mark': tcgdex_data.get('regulationMark', None),
+            })
+            
+            # Update database with all fields
             query = f"""
                 UPDATE {table_name}
                 SET 
@@ -111,8 +123,16 @@ class CardEnricher:
                     types = $5::jsonb,
                     stage = $6,
                     evolves_from = $7,
-                    retreat_cost = $8
-                WHERE id = $9
+                    retreat_cost = $8,
+                    abilities = $9::jsonb,
+                    attacks = $10::jsonb,
+                    weaknesses = $11::jsonb,
+                    resistances = $12::jsonb,
+                    variants = $13::jsonb,
+                    suffix = $14,
+                    dex_id = $15,
+                    regulation_mark = $16
+                WHERE id = $17
             """
             
             await conn.execute(
@@ -125,6 +145,14 @@ class CardEnricher:
                 update_data['stage'],
                 update_data['evolves_from'],
                 update_data['retreat_cost'],
+                update_data['abilities'],
+                update_data['attacks'],
+                update_data['weaknesses'],
+                update_data['resistances'],
+                update_data['variants'],
+                update_data['suffix'],
+                update_data['dex_id'],
+                update_data['regulation_mark'],
                 card_id
             )
             
