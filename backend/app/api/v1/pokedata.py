@@ -318,3 +318,73 @@ async def get_set_cards(
     except Exception as e:
         logger.error(f"Failed to fetch cards for set {set_id}: {e}")
         return {"data": [], "total": 0, "skip": skip, "limit": limit, "language": lang}
+
+
+@router.get("/cards/{card_id}/details")
+async def get_card_details(
+    card_id: int,
+    lang: str = Query('en', description="Language code (en, fr, de, es, it, ja, etc.)")
+):
+    """Get detailed information for a specific card"""
+    try:
+        # Validate language
+        lang = validate_language(lang)
+        table_name = f"pokedata_cards_{lang}"
+        
+        async with get_db_session() as db:
+            # Get full card details - only query columns that exist
+            query = text(f"""
+                SELECT 
+                    id, tcgdex_id, local_id, name, set_id, set_name,
+                    category, rarity, illustrator,
+                    hp, types, stage, evolves_from, retreat_cost, 
+                    image_url, set_release_date, created_at
+                FROM {table_name}
+                WHERE id = :card_id
+            """)
+            
+            result = await db.execute(query, {"card_id": card_id})
+            row = result.first()
+            
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Card {card_id} not found")
+            
+            # Fix image URL
+            image_url = row.image_url
+            if image_url and not image_url.endswith(('.jpg', '.png', '.webp')):
+                image_url = f"{image_url}/high.webp"
+            
+            card_detail = {
+                "id": row.id,
+                "tcgdex_id": row.tcgdex_id,
+                "local_id": row.local_id,
+                "name": row.name,
+                "set_id": row.set_id,
+                "set_name": row.set_name,
+                "category": row.category or "",
+                "rarity": row.rarity or "",
+                "illustrator": row.illustrator or "",
+                "hp": row.hp,
+                "types": row.types or [],
+                "stage": row.stage or "",
+                "evolves_from": row.evolves_from or "",
+                "retreat_cost": row.retreat_cost,
+                "image_url": image_url,
+                "set_release_date": str(row.set_release_date) if row.set_release_date else None,
+                "created_at": str(row.created_at) if row.created_at else None,
+                "language": lang,
+                # Placeholder for future pricing data
+                "pricing": {
+                    "market_price": None,
+                    "ebay_avg_price": None,
+                    "ebay_listings": []
+                }
+            }
+            
+            return card_detail
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch card details for {card_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch card details: {str(e)}")
