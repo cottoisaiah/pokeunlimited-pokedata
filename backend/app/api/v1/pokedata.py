@@ -332,13 +332,14 @@ async def get_card_details(
         table_name = f"pokedata_cards_{lang}"
         
         async with get_db_session() as db:
-            # Get full card details including extended fields
+            # Get full card details including extended fields and pricing
             query = text(f"""
                 SELECT 
                     id, tcgdex_id, local_id, name, set_id, set_name,
                     category, rarity, illustrator,
                     hp, types, stage, evolves_from, retreat_cost, 
                     abilities, attacks, weaknesses, resistances,
+                    tcgplayer_prices, cardmarket_prices, pricing_last_updated,
                     image_url, set_release_date, created_at
                 FROM {table_name}
                 WHERE id = :card_id
@@ -375,11 +376,15 @@ async def get_card_details(
                 "attacks": row.attacks or [],
                 "weaknesses": row.weaknesses or [],
                 "resistances": row.resistances or [],
+                # Pricing fields (Phase 3)
+                "tcgplayer_prices": row.tcgplayer_prices or None,
+                "cardmarket_prices": row.cardmarket_prices or None,
+                "pricing_last_updated": str(row.pricing_last_updated) if row.pricing_last_updated else None,
                 "image_url": image_url,
                 "set_release_date": str(row.set_release_date) if row.set_release_date else None,
                 "created_at": str(row.created_at) if row.created_at else None,
                 "language": lang,
-                # Placeholder for future pricing data
+                # Legacy pricing structure for backward compatibility
                 "pricing": {
                     "market_price": None,
                     "ebay_avg_price": None,
