@@ -98,6 +98,7 @@ class CardEnricher:
                 'stage': tcgdex_data.get('stage', ''),
                 'evolves_from': tcgdex_data.get('evolveFrom', ''),
                 'retreat_cost': tcgdex_data.get('retreat'),
+                'image_url': tcgdex_data.get('image', ''),  # Add image URL
             }
             
             # Extended fields (Phase 2)
@@ -131,8 +132,9 @@ class CardEnricher:
                     variants = $13::jsonb,
                     suffix = $14,
                     dex_id = $15,
-                    regulation_mark = $16
-                WHERE id = $17
+                    regulation_mark = $16,
+                    image_url = COALESCE(image_url, $17)
+                WHERE id = $18
             """
             
             await conn.execute(
@@ -153,6 +155,7 @@ class CardEnricher:
                 update_data['suffix'],
                 update_data['dex_id'],
                 update_data['regulation_mark'],
+                update_data['image_url'],
                 card_id
             )
             
