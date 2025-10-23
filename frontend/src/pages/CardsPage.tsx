@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { tcgdexApi, TCGCard } from '../services/api';
 
 const CardsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const lang = queryParams.get('lang') || localStorage.getItem('selected_language') || 'en';
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('number');
 
   const { data: cards = [], isLoading } = useQuery(
-    ['tcgdex-cards', id],
-    () => id ? tcgdexApi.getSetCards(id) : Promise.resolve([]),
+    ['tcgdex-cards', id, lang],
+    () => id ? tcgdexApi.getSetCards(id, lang) : Promise.resolve([]),
     {
       enabled: !!id,
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -20,8 +24,8 @@ const CardsPage: React.FC = () => {
   );
 
   const { data: setInfo } = useQuery(
-    ['tcgdex-set', id],
-    () => id ? tcgdexApi.getSetDetails(id) : Promise.resolve(null),
+    ['tcgdex-set', id, lang],
+    () => id ? tcgdexApi.getSetDetails(id, lang) : Promise.resolve(null),
     {
       enabled: !!id,
       staleTime: 10 * 60 * 1000, // 10 minutes
