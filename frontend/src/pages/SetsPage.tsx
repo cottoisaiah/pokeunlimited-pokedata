@@ -7,6 +7,27 @@ import { tcgdexApi, TCGSet } from '../services/api';
 const SetsPage: React.FC = () => {
   const [selectedEra, setSelectedEra] = useState<string>('scarlet-violet');
   const [expandedEras, setExpandedEras] = useState<Set<string>>(new Set(['scarlet-violet']));
+  const [selectedLang, setSelectedLang] = useState<string>(() => {
+    return localStorage.getItem('selected_language') || 'en';
+  });
+
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'de', name: 'German' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'it', name: 'Italian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'nl', name: 'Dutch' },
+    { code: 'pl', name: 'Polish' },
+    { code: 'pt_br', name: 'Portuguese (BR)' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'th', name: 'Thai' },
+    { code: 'zh_cn', name: 'Chinese (Simplified)' },
+    { code: 'zh_tw', name: 'Chinese (Traditional)' },
+    { code: 'id', name: 'Indonesian' }
+  ];
 
   const eras = [
     {
@@ -37,13 +58,18 @@ const SetsPage: React.FC = () => {
   ];
 
   const { data: sets = [], isLoading } = useQuery(
-    ['tcgdex-sets'],
-    () => tcgdexApi.getSets(),
+    ['tcgdex-sets', selectedLang],
+    () => tcgdexApi.getSets(selectedLang),
     {
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000, // 10 minutes
     }
   );
+
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLang(lang);
+    localStorage.setItem('selected_language', lang);
+  };
 
   const toggleEra = (eraId: string) => {
     const newExpanded = new Set(expandedEras);
@@ -118,6 +144,15 @@ const SetsPage: React.FC = () => {
             <div className="mb-6 flex justify-between items-center">
               <h1 className="text-2xl font-bold text-gray-900">Sets</h1>
               <div className="flex items-center space-x-4">
+                <select 
+                  value={selectedLang}
+                  onChange={(e) => handleLanguageChange(e.target.value)}
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                >
+                  {languages.map(lang => (
+                    <option key={lang.code} value={lang.code}>{lang.name}</option>
+                  ))}
+                </select>
                 <select className="border border-gray-300 rounded px-3 py-2 text-sm">
                   <option>Sort by: Release Date</option>
                   <option>Sort by: Name</option>
@@ -137,7 +172,7 @@ const SetsPage: React.FC = () => {
                 {sets.map((set) => (
                   <Link
                     key={set.id}
-                    to={`/sets/${set.id}`}
+                    to={`/sets/${set.id}?lang=${selectedLang}`}
                     className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                   >
                     <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center p-4">
