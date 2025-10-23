@@ -177,86 +177,84 @@ export interface TCGCard {
 
 // TCGdex API service functions
 export const tcgdexApi = {
-  async getSets(): Promise<TCGSet[]> {
+  async getSets(lang: string = 'en'): Promise<TCGSet[]> {
     try {
-      const response = await apiClient.get<{ status: string; data: TCGSet[] }>('/api/v1/tcgdex/sets');
-      return response.data;
+      // Use PokeData API which supports multi-language from database
+      const response = await apiClient.get<{ data: any[]; total: number; language: string }>('/api/v1/pokedata/sets', {
+        lang: lang,
+        limit: 1000 // Get all sets
+      });
+      
+      // Transform the response to match TCGSet interface
+      return response.data.map((set: any) => ({
+        id: set.tcgdex_id,
+        name: set.name,
+        logo: set.logo_url,
+        symbol: set.symbol_url || '',
+        releaseDate: set.release_date || '',
+        totalCards: set.total_cards || 0,
+        series: set.series_name || '',
+        legal: { standard: true, expanded: true }
+      }));
     } catch (error) {
-      console.error('Failed to fetch TCGdex sets:', error);
-      // Return mock data as fallback
-      return [
-        {
-          id: 'sv7',
-          name: 'White Flare',
-          logo: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV7/SV7_EN_1.png',
-          symbol: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV7/symbol.png',
-          releaseDate: '2025-01-17',
-          totalCards: 64,
-          series: 'Scarlet & Violet',
-          legal: { standard: true, expanded: true }
-        },
-        {
-          id: 'sv6',
-          name: 'Black Volt',
-          logo: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV6/SV6_EN_1.png',
-          symbol: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV6/symbol.png',
-          releaseDate: '2024-11-08',
-          totalCards: 66,
-          series: 'Scarlet & Violet',
-          legal: { standard: true, expanded: true }
-        }
-      ];
+      console.error('Failed to fetch sets:', error);
+      return [];
     }
   },
 
-  async getSetCards(setId: string): Promise<TCGCard[]> {
+  async getSetCards(setId: string, lang: string = 'en'): Promise<TCGCard[]> {
     try {
-      const response = await apiClient.get<{ status: string; data: TCGCard[] }>(`/api/v1/tcgdex/sets/${setId}/cards`);
-      return response.data;
+      // Use PokeData API which supports multi-language from database
+      const response = await apiClient.get<{ data: any[]; total: number; language: string }>(`/api/v1/pokedata/cards`, {
+        set_id: setId,
+        lang: lang,
+        limit: 1000 // Get all cards for the set
+      });
+      
+      // Transform the response to match TCGCard interface
+      return response.data.map((card: any) => ({
+        id: card.tcgdex_id,
+        name: card.name,
+        image: card.image_url,
+        localId: card.local_id || '',
+        illustrator: card.illustrator || '',
+        rarity: card.rarity || '',
+        category: card.category || '',
+        set: {
+          id: card.set_id,
+          name: card.set_name || ''
+        },
+        hp: card.hp,
+        types: card.types || [],
+        evolveFrom: card.evolves_from,
+        stage: card.stage,
+        retreat: card.retreat_cost,
+        price: 0 // TODO: Add pricing data
+      }));
     } catch (error) {
       console.error(`Failed to fetch cards for set ${setId}:`, error);
-      // Return mock data as fallback
-      return [
-        {
-          id: 'sv7-1',
-          name: 'Pikachu',
-          image: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV7/SV7_EN_1.png',
-          localId: '1',
-          illustrator: 'Mitsuhiro Arita',
-          rarity: 'Common',
-          category: 'Pokemon',
-          set: { id: 'sv7', name: 'White Flare' },
-          hp: 60,
-          types: ['Lightning'],
-          attacks: [{ name: 'Thunder Shock', damage: 20 }],
-          weaknesses: [{ type: 'Fighting', value: '×2' }],
-          retreat: 1,
-          regulationMark: 'G'
-        },
-        {
-          id: 'sv7-2',
-          name: 'Charizard ex',
-          image: 'https://assets.pokemon.com/assets/cms2/img/cards/web/SV7/SV7_EN_2.png',
-          localId: '2',
-          illustrator: '5ban Graphics',
-          rarity: 'Double Rare',
-          category: 'Pokemon',
-          set: { id: 'sv7', name: 'White Flare' },
-          hp: 330,
-          types: ['Fire'],
-          attacks: [{ name: 'Fire Spin', damage: 230 }],
-          weaknesses: [{ type: 'Water', value: '×2' }],
-          retreat: 2,
-          regulationMark: 'G'
-        }
-      ];
+      return [];
     }
   },
 
-  async getSetDetails(setId: string): Promise<TCGSet> {
+  async getSetDetails(setId: string, lang: string = 'en'): Promise<TCGSet> {
     try {
-      const response = await apiClient.get<{ status: string; data: TCGSet }>(`/api/v1/tcgdex/sets/${setId}`);
-      return response.data;
+      // Use PokeData API which supports multi-language from database
+      const response = await apiClient.get<{ data: any }>(`/api/v1/pokedata/sets/${setId}`, {
+        lang: lang
+      });
+      
+      const set = response.data;
+      return {
+        id: set.tcgdex_id,
+        name: set.name,
+        logo: set.logo_url,
+        symbol: set.symbol_url || '',
+        releaseDate: set.release_date || '',
+        totalCards: set.total_cards || 0,
+        series: set.series_name || '',
+        legal: { standard: true, expanded: true }
+      };
     } catch (error) {
       console.error(`Failed to fetch set details for ${setId}:`, error);
       throw error;
