@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, DollarSign, BarChart3, User, Twitter, MessageSquare, Github } from 'lucide-react';
+import { Search, Twitter, MessageSquare } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;

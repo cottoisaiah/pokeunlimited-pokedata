@@ -17,7 +17,7 @@ interface PortfolioCard {
 const PortfolioPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('value');
-  const [filterBy, setFilterBy] = useState('all');
+  // const [filterBy, setFilterBy] = useState('all');
 
   // Mock portfolio data
   const portfolioCards: PortfolioCard[] = [

@@ -1,10 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   productsService, 
-  ProductSearchParams, 
-  ProductWithPricing,
-  PriceHistory,
-  MarketAnalysis 
+  ProductSearchParams
 } from '../services/products';
 
 // Query keys for React Query caching
