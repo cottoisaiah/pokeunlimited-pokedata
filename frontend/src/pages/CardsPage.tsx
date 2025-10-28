@@ -2,13 +2,19 @@ import React, { useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
 import { useQuery } from 'react-query';
-import { tcgdexApi, TCGCard } from '../services/api';
+import { tcgdexApi } from '../services/api';
 
 const CardsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const lang = queryParams.get('lang') || localStorage.getItem('selected_language') || 'en';
+  
+  // Preserve the page and lang params for the back link
+  const backToSetsUrl = `/sets?${new URLSearchParams({
+    ...(lang !== 'en' ? { lang } : {}),
+    ...(sessionStorage.getItem('sets_page') ? { page: sessionStorage.getItem('sets_page')! } : {})
+  }).toString()}`;
   
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('number');
@@ -61,7 +67,7 @@ const CardsPage: React.FC = () => {
           <nav className="text-sm text-gray-500 mb-4">
             <Link to="/" className="hover:text-gray-700">Home</Link>
             <span className="mx-2">{'>'}</span>
-            <Link to="/sets" className="hover:text-gray-700">Sets</Link>
+            <Link to={backToSetsUrl} className="hover:text-gray-700">Sets</Link>
             <span className="mx-2">{'>'}</span>
             <span className="text-gray-900">{setInfo?.name || 'Loading...'}</span>
           </nav>
